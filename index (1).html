@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A.U.R.A. System Status</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:    #090d12;
+    --bg2:   #0e1520;
+    --border:#1e2e42;
+    --cyan:  #00d4ff;
+    --green: #00ff9d;
+    --red:   #ff3b5c;
+    --amber: #ffb830;
+    --text:  #c8dff0;
+    --dim:   #3a5570;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background: repeating-linear-gradient(0deg,
+      transparent, transparent 2px,
+      rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px);
+    pointer-events: none;
+  }
+  .card {
+    position: relative; z-index: 1;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px 28px;
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+  }
+  .logo {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--cyan);
+    text-shadow: 0 0 20px rgba(0,212,255,0.4);
+    margin-bottom: 4px;
+  }
+  .logo-sub {
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 0.18em;
+    margin-bottom: 28px;
+  }
+
+  /* Status indicator */
+  .status-icon {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+    transition: all 0.4s;
+  }
+  .status-icon.checking {
+    background: rgba(255,184,48,0.1);
+    border: 2px solid var(--amber);
+    animation: spin 1.5s linear infinite;
+  }
+  .status-icon.online {
+    background: rgba(0,255,157,0.1);
+    border: 2px solid var(--green);
+    box-shadow: 0 0 20px rgba(0,255,157,0.2);
+    animation: none;
+  }
+  .status-icon.offline {
+    background: rgba(255,59,92,0.1);
+    border: 2px solid var(--red);
+    box-shadow: 0 0 20px rgba(255,59,92,0.2);
+    animation: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .status-label {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    margin-bottom: 8px;
+    transition: color 0.4s;
+  }
+  .status-label.checking { color: var(--amber); }
+  .status-label.online   { color: var(--green); }
+  .status-label.offline  { color: var(--red); }
+
+  .status-desc {
+    font-size: 11px;
+    color: var(--dim);
+    line-height: 1.7;
+    margin-bottom: 24px;
+    min-height: 36px;
+  }
+
+  /* IP input */
+  .ip-section {
+    margin-bottom: 16px;
+  }
+  .ip-label {
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .ip-row {
+    display: flex;
+    gap: 8px;
+  }
+  .ip-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .ip-input:focus { border-color: var(--cyan); }
+  .btn {
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: 1px solid;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    background: transparent;
+    transition: all 0.2s;
+  }
+  .btn-set {
+    color: var(--cyan);
+    border-color: rgba(0,212,255,0.3);
+  }
+  .btn-set:hover {
+    background: rgba(0,212,255,0.08);
+  }
+
+  /* Action buttons */
+  .btn-go {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 8px;
+    color: var(--green);
+    border-color: rgba(0,255,157,0.3);
+    font-size: 12px;
+    text-decoration: none;
+    text-align: center;
+  }
+  .btn-go:hover {
+    background: rgba(0,255,157,0.08);
+    box-shadow: 0 0 16px rgba(0,255,157,0.15);
+  }
+  .btn-go.disabled {
+    color: var(--dim);
+    border-color: var(--border);
+    pointer-events: none;
+    cursor: default;
+  }
+  .btn-retry {
+    color: var(--amber);
+    border-color: rgba(255,184,48,0.3);
+    font-size: 11px;
+    width: 100%;
+    padding: 9px;
+  }
+  .btn-retry:hover { background: rgba(255,184,48,0.08); }
+
+  /* Last checked */
+  .last-check {
+    font-size: 9px;
+    color: var(--dim);
+    margin-top: 16px;
+    letter-spacing: 0.1em;
+  }
+
+  /* Instructions box */
+  .instructions {
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 10px;
+    color: var(--dim);
+    text-align: left;
+    line-height: 1.8;
+  }
+  .instructions b { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">A.U.R.A.</div>
+  <div class="logo-sub">AUTONOMOUS USER RECOGNITION & ACCESS</div>
+
+  <div class="status-icon checking" id="status-icon">⟳</div>
+  <div class="status-label checking" id="status-label">CHECKING</div>
+  <div class="status-desc" id="status-desc">
+    Attempting to reach the A.U.R.A. system...
+  </div>
+
+  <div class="ip-section">
+    <div class="ip-label">ESP32 Dashboard IP Address</div>
+    <div class="ip-row">
+      <input class="ip-input" id="esp-ip"
+             type="text" placeholder="e.g. 10.244.243.251"
+             value="">
+      <button class="btn btn-set" onclick="saveAndCheck()">SET</button>
+    </div>
+  </div>
+
+  <a class="btn btn-go disabled" id="btn-open" href="#" target="_blank">
+    ▶ OPEN LIVE DASHBOARD
+  </a>
+  <button class="btn btn-retry" onclick="checkStatus()">↺ RETRY NOW</button>
+
+  <div class="last-check" id="last-check">Last checked: never</div>
+
+  <div class="instructions">
+    <b>How to use:</b><br>
+    1. Make sure your phone is on the <b>same WiFi</b> as the ESP32<br>
+    2. Enter the ESP32's IP from its Serial Monitor<br>
+    3. Tap SET — this page will check if it's reachable<br>
+    4. If ONLINE → tap Open Live Dashboard<br>
+    5. If OFFLINE → ESP32 is not powered or not connected<br><br>
+    <b>ESP32-CAM stream:</b> Enter CAM IP in the dashboard CAM panel<br>
+    <b>Your saved ESP32 IP is stored in this browser</b>
+  </div>
+</div>
+
+<script>
+// ── Persist IP in localStorage ────────────────────────────────
+function loadSavedIP() {
+  const saved = localStorage.getItem('aura_esp32_ip');
+  if (saved) {
+    document.getElementById('esp-ip').value = saved;
+    return saved;
+  }
+  return null;
+}
+
+function saveAndCheck() {
+  const ip = document.getElementById('esp-ip').value.trim();
+  if (!ip) return;
+  localStorage.setItem('aura_esp32_ip', ip);
+  checkStatus();
+}
+
+// ── Check if ESP32 is reachable ───────────────────────────────
+// Strategy: fetch http://<IP>/ with a short timeout
+// If it responds → online. If it errors or times out → offline.
+function checkStatus() {
+  const ip = document.getElementById('esp-ip').value.trim();
+  if (!ip) {
+    setState('offline',
+      'No IP address entered.',
+      'Enter your ESP32 IP address above and tap SET.');
+    return;
+  }
+
+  setState('checking', 'CHECKING',
+    'Trying to reach http://' + ip + ' ...');
+
+  const url    = 'http://' + ip + '/';
+  const start  = Date.now();
+
+  // Use fetch with AbortController for timeout
+  const ctrl    = new AbortController();
+  const timeout = setTimeout(() => ctrl.abort(), 5000); // 5s timeout
+
+  fetch(url, {
+    method: 'GET',
+    mode:   'no-cors',   // avoids CORS blocking — we just want reachability
+    signal: ctrl.signal
+  })
+  .then(() => {
+    clearTimeout(timeout);
+    const ms = Date.now() - start;
+    setState('online', 'ONLINE',
+      'A.U.R.A. is reachable at ' + ip + '. Response in ' + ms + 'ms.',
+      ip);
+  })
+  .catch((err) => {
+    clearTimeout(timeout);
+    if (err.name === 'AbortError') {
+      setState('offline', 'OFFLINE',
+        'Connection timed out. ESP32 may be off or on a different network.');
+    } else {
+      // In no-cors mode, a TypeError can still mean it responded
+      // (CORS blocked = server replied = online)
+      const ms = Date.now() - start;
+      if (ms < 4800) {
+        setState('online', 'ONLINE',
+          'A.U.R.A. is reachable at ' + ip + ' (CORS response).',
+          ip);
+      } else {
+        setState('offline', 'OFFLINE',
+          'Could not reach ' + ip +
+          '. Check that ESP32 is powered and on the same WiFi.');
+      }
+    }
+  });
+
+  updateLastChecked();
+}
+
+// ── Update UI state ───────────────────────────────────────────
+function setState(state, label, desc, ip) {
+  const icon  = document.getElementById('status-icon');
+  const lbl   = document.getElementById('status-label');
+  const dsc   = document.getElementById('status-desc');
+  const btn   = document.getElementById('btn-open');
+
+  icon.className  = 'status-icon '  + state;
+  lbl.className   = 'status-label ' + state;
+  lbl.textContent = label;
+  dsc.textContent = desc;
+
+  if (state === 'checking') {
+    icon.textContent = '⟳';
+    btn.className    = 'btn btn-go disabled';
+    btn.href         = '#';
+  } else if (state === 'online') {
+    icon.textContent = '✓';
+    const dashURL    = 'http://' + ip;
+    btn.href         = dashURL;
+    btn.className    = 'btn btn-go';
+  } else {
+    icon.textContent = '✗';
+    btn.className    = 'btn btn-go disabled';
+    btn.href         = '#';
+  }
+}
+
+function updateLastChecked() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  document.getElementById('last-check').textContent =
+    'Last checked: ' +
+    pad(now.getHours()) + ':' +
+    pad(now.getMinutes()) + ':' +
+    pad(now.getSeconds());
+}
+
+// ── Auto-retry every 30 seconds ───────────────────────────────
+function autoRetry() {
+  const ip = document.getElementById('esp-ip').value.trim();
+  if (ip) checkStatus();
+}
+setInterval(autoRetry, 30000);
+
+// ── Init ──────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  loadSavedIP();
+  const ip = document.getElementById('esp-ip').value.trim();
+  if (ip) {
+    checkStatus();
+  } else {
+    setState('offline', 'NOT CONFIGURED',
+      'Enter your ESP32 IP address above and tap SET to begin.');
+  }
+});
+</script>
+</body>
+</html>
